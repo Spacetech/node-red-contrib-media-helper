@@ -1,4 +1,10 @@
+import * as nodered from "node-red";
+
 import Conversation from "./conversation";
+
+interface MediaHelperNodeConfig extends nodered.NodeProperties {
+	coachPotatoApiUrl: string;
+}
 
 interface IGoogleAction {
 	conversationId: string;
@@ -11,8 +17,8 @@ interface IGoogleAction {
 
 const conversations: Map<string, Conversation> = new Map();
 
-module.exports = (RED: any) => {
-	function MediaHelperNode(config: any) {
+module.exports = (RED: nodered.Red) => {
+	function MediaHelperNode(config: MediaHelperNodeConfig) {
 		RED.nodes.createNode(this, config);
 
 		const coachPotatoApiUrl = config.coachPotatoApiUrl;
@@ -39,5 +45,5 @@ module.exports = (RED: any) => {
 		});
 	}
 
-	RED.nodes.registerType("media-helper", MediaHelperNode);
+	RED.nodes.registerType<MediaHelperNodeConfig>("media-helper", MediaHelperNode);
 }

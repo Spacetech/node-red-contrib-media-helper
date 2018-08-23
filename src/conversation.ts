@@ -5,120 +5,122 @@ import { IMovie } from "node-red-contrib-media-helper/src/common";
 const yesMessages = ["yes", "yep", "yea", "please do", "make it so", "do it", "go"];
 
 enum ConversationState {
-    Idle,
-    Searching
+	Idle,
+	Searching
 }
 
 interface IConversationState {
-    state: ConversationState;
+	state: ConversationState;
 }
 
 interface IIdleConversationState extends IConversationState {
-    state: ConversationState.Idle;
+	state: ConversationState.Idle;
 }
 
 interface ISearchingConversationState extends IConversationState {
-    state: ConversationState.Searching;
-    movies: IMovie[];
-    selection: IMovie;
+	state: ConversationState.Searching;
+	movies: IMovie[];
+	selection: IMovie;
 }
 
 type ConversationStateType = IIdleConversationState | ISearchingConversationState;
 
 export interface IConversationResponse {
-    message: string;
-    endConversation: boolean;
+	message: string;
+	endConversation: boolean;
 }
 
 export default class Conversation {
 
-    private state: ConversationStateType = {
-        state: ConversationState.Idle
-    };
+	private state: ConversationStateType = {
+		state: ConversationState.Idle
+	};
 
-    private couchPotato: CouchPotato;
+	private couchPotato: CouchPotato;
 
-    constructor(coachPotatoApiUrl: string) {
-        this.couchPotato = new CouchPotato(coachPotatoApiUrl);
-    }
+	constructor(coachPotatoApiUrl: string) {
+		this.couchPotato = new CouchPotato(coachPotatoApiUrl);
+	}
 
-    public async process(input: string): Promise<IConversationResponse> {
-        let response = {
-            message: "Welcome to Media Helper!",
-            endConversation: false
-        };
+	public async process(input: string): Promise<IConversationResponse> {
+		let response = {
+			message: "Welcome to Media Helper!",
+			endConversation: false
+		};
 
-        switch (this.state.state) {
+		switch (this.state.state) {
 
-            case ConversationState.Idle:
-                if (input.indexOf("download") === 0) {
-                    const title = input.substring(8).trim();
+			case ConversationState.Idle:
+				if (input.indexOf("download") === 0) {
+					const title = input.substring(8).trim();
 
-                    try {
-                        const movies = await this.couchPotato.search(title);
+					try {
+						const movies = await this.couchPotato.search(title);
 
-                        if (movies.length === 0) {
-                            response.message = "No movies found";
-                            response.endConversation = true;
+						if (movies.length === 0) {
+							response.message = "No movies found";
+							response.endConversation = true;
 
-                        } else {
-                            const firstMovie = movies[0];
+						} else {
+							const firstMovie = movies[0];
 
-                            response.message = `Found ${movies.length} movies matching that title.\n`;
+							response.message = `Found ${movies.length} movies matching that title.\n`;
 
-                            if (firstMovie.inLibrary) {
-                                response.message += `${firstMovie.title} (${firstMovie.year}) is already in your library.`;
-                            } else {
-                                response.message += `Do you want to download ${firstMovie.title} (${firstMovie.year})?`;
-                            }
+							if (firstMovie.inLibrary) {
+								response.message += `${firstMovie.title} (${firstMovie.year}) is already in your library.`;
+								response.endConversation = true;
 
-                            this.state = {
-                                state: ConversationState.Searching,
-                                movies: movies,
-                                selection: firstMovie
-                            };
-                        }
-                    }
-                    catch (ex) {
-                        response.message = "An error occured while trying to search.";
-                        response.endConversation = true;
-                    }
-                }
+							} else {
+								response.message += `Do you want to download ${firstMovie.title} (${firstMovie.year})?`;
+							}
 
-                break;
+							this.state = {
+								state: ConversationState.Searching,
+								movies: movies,
+								selection: firstMovie
+							};
+						}
+					}
+					catch (ex) {
+						response.message = "An error occured while trying to search.";
+						response.endConversation = true;
+					}
+				}
 
-            case ConversationState.Searching:
-                let yes = false;
+				break;
 
-                for (const yesMessage of yesMessages) {
-                    if (input.indexOf(yesMessage) !== -1) {
-                        yes = true;
-                        break;
-                    }
-                }
+			case ConversationState.Searching:
+				let yes = false;
 
-                if (yes) {
-                    const success = await this.couchPotato.download(this.state.selection.imdbId);
+				for (const yesMessage of yesMessages) {
+					if (input.indexOf(yesMessage) !== -1) {
+						yes = true;
+						break;
+					}
+				}
 
-                    response.message = success ? "The movie download has been queued" : "Failed to queue movie download";
+				if (yes) {
+					const success = await this.couchPotato.download(this.state.selection.imdbId);
 
-                } else {
-                    response.message = "Canceled.";
-                }
+					response.message = success ? "The movie download has been queued" : "Failed to queue movie download";
 
-                response.endConversation = true;
+				} else {
+					response.message = "Canceled.";
+				}
 
-                this.resetState();
+				response.endConversation = true;
 
-                break;
-        }
+				this.resetState();
 
-        return response;
-    }
+				break;
+		}
 
-    private resetState() {
-        this.state = {
-            state: ConversationState.Idle
-        };
-    }
+		return response;
+	}
+
+	private resetState() {
+		this.state = {
+			state: ConversationState.Idle
+		};
+	}
 }
