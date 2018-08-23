@@ -1,0 +1,20 @@
+{
+    "name": "node-red-contrib-media-helper",
+    "description": "A node that helps you manage your media via Google Assistant",
+    "license": "LICENSE.txt",
+    "version": "1.0.0",
+    "author": {
+        "name": "Spacetech"
+    },
+    "dependencies": {
+        "request": "^2.88.0"
+    },
+    "devDependencies": {
+        "@types/request": "^2.47.1"
+    },
+    "node-red": {
+        "nodes": {
+            "media-helper": "lib/index.js"
+        }
+    }
+}
