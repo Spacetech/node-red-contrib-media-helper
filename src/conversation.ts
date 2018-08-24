@@ -1,6 +1,5 @@
-
 import CouchPotato from "./movies/couchPotato";
-import { IMovie } from "node-red-contrib-media-helper/src/common";
+import * as common from "./common";
 
 const yesMessages = ["yes", "yep", "yea", "please do", "make it so", "do it", "go"];
 
@@ -19,14 +18,14 @@ interface IIdleConversationState extends IConversationState {
 
 interface ISearchingConversationState extends IConversationState {
 	state: ConversationState.Searching;
-	movies: IMovie[];
-	selection: IMovie;
+	movies: common.IMovie[];
+	selection: common.IMovie;
 }
 
 type ConversationStateType = IIdleConversationState | ISearchingConversationState;
 
 export interface IConversationResponse {
-	message: string;
+	message: string | undefined;
 	endConversation: boolean;
 }
 
@@ -43,8 +42,8 @@ export default class Conversation {
 	}
 
 	public async process(input: string): Promise<IConversationResponse> {
-		let response = {
-			message: "Welcome to Media Helper!",
+		let response: IConversationResponse = {
+			message: undefined,
 			endConversation: false
 		};
 

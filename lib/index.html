@@ -6,15 +6,179 @@
             name: {
                 value: ""
             },
+            outputs: {
+                value: 1
+            },
             coachPotatoApiUrl: {
                 value: "http://localhost:5050/api/123456"
-            }
+            },
+            customActions: {
+                value: [],
+                validate: (customActions) => {
+                    if (!customActions) {
+                        return false;
+                    }
+
+                    for (const customAction of customActions) {
+                        if (customAction.name.trim().length === 0) {
+                            return false;
+                        }
+
+                        for (const phrase of customAction.phrases) {
+                            if (phrase.trim().length === 0) {
+                                return false;
+                            }
+                        }
+                    }
+
+                    return true;
+                }
+            },
         },
         inputs: 1,
         outputs: 1,
-        icon: "file.png",
+        outputLabels: function (index) {
+            if (index === 0) {
+                return "Response";
+            }
+
+            const customAction = this.customActions[index - 1];
+            if (customAction) {
+                return `Action - ${customAction.name}`;
+            }
+        },
+        icon: "serial.png",
         label: function () {
             return this.name || "Media Helper";
+        },
+        labelStyle: function () {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function () {
+            const outputCount = $("#node-input-outputs").val(`{"99999": 99999}`);
+
+            $("#node-input-custom-actions")
+                .editableList({
+                    addButton: "Add Custom Action",
+                    removable: true,
+                    addItem: (row, index, opt) => {
+                        if (!opt.hasOwnProperty('i')) {
+                            opt._i = Math.floor((0x99999 - 0x10000) * Math.random()).toString();
+                        }
+
+                        $(row).html(
+                            `
+                            <div class="form-row">
+                                <label for="custom-action-input-name-${index}">
+                                    <i class="icon-tag"></i> Action Name
+                                </label>
+                                <input type="text" id="custom-action-input-name-${index}" placeholder="Name">
+                            </div>
+                            <div class="form-row">
+                                <ol id="custom-action-input-phrases-${index}"></ol>
+                            </div>`
+                        );
+
+                        $(row)
+                            .find(`#custom-action-input-phrases-${index}`)
+                            .editableList({
+                                addButton: "Add Phrase",
+                                height: "auto",
+                                removable: true,
+                                sortable: true,
+                                header: $("<div>").append($.parseHTML(
+                                    "<div style='width:100%; display: inline-grid'>Phrases</div>"
+                                )),
+                                addItem: (row, index, opt) => {
+                                    $(row).html(`<input type="text" class="custom-action-input-phrase" placeholder="phrase" style="width:100%">`);
+
+                                    if (opt && opt.phrase) {
+                                        $(row).find("input").val(opt.phrase);
+                                    }
+                                }
+                            });
+
+                        if (opt && opt.name && opt.phrases) {
+                            $(row).find(`#custom-action-input-name-${index}`).val(opt.name);
+
+                            $(row)
+                                .find(`#custom-action-input-phrases-${index}`)
+                                .editableList("addItems", opt.phrases.map((phrase) => {
+                                    return {
+                                        phrase: phrase
+                                    };
+                                }));
+                        }
+
+                        // add an output
+                        const currentOutputs = JSON.parse(outputCount.val() || "{}");
+                        currentOutputs[opt.hasOwnProperty("i") ? opt.i : opt._i] = index;
+                        outputCount.val(JSON.stringify(currentOutputs));
+                    },
+                    removeItem: function (opt) {
+                        // remove this output
+                        const currentOutputs = JSON.parse(outputCount.val() || "{}");
+                        if (opt.hasOwnProperty("i")) {
+                            currentOutputs[opt.i] = -1;
+                        } else {
+                            delete currentOutputs[opt._i];
+                        }
+
+                        outputCount.val(JSON.stringify(currentOutputs));
+
+                        // fix other ids
+                        this.sortItems();
+                    },
+                    sortItems: () => {
+                        const currentOutputs = JSON.parse(outputCount.val() || "{}");
+                        const rules = $("#node-input-custom-actions").editableList("items");
+
+                        rules.each(function (i) {
+                            $(this).find(".node-input-rule-index").html(i + 1);
+                            const data = $(this).data("data");
+                            currentOutputs[data.hasOwnProperty("i") ? data.i : data._i] = i;
+                        });
+
+                        outputCount.val(JSON.stringify(currentOutputs));
+                    },
+                    // header: $("<div>").append($.parseHTML(
+                    //     "<div style='width:40%; display: inline-grid'>Name</div><div style='display: inline-grid'>Type</div>"
+                    // )),
+                });
+
+            if (this.customActions) {
+                for (let i = 0; i < this.customActions.length; i++) {
+                    const customAction = this.customActions[i];
+                    $("#node-input-custom-actions").editableList('addItem', {
+                        name: customAction.name,
+                        phrases: customAction.phrases,
+                        i: i
+                    });
+                }
+            }
+        },
+        oneditsave: function () {
+            const customActions = [];
+
+            $("#node-input-custom-actions")
+                .editableList("items")
+                .each(function (index) {
+                    const customAction = {
+                        name: $(this).find(`#custom-action-input-name-${index}`).val().trim(),
+                        phrases: []
+                    };
+
+                    $(this)
+                        .find(`#custom-action-input-phrases-${index}`)
+                        .editableList("items")
+                        .each(function (index) {
+                            customAction.phrases.push($(this).find("input").val().trim());
+                        });
+
+                    customActions.push(customAction);
+                });
+
+            this.customActions = customActions;
         }
     });
 </script>
@@ -25,6 +189,7 @@
             <i class="icon-tag"></i> Name
         </label>
         <input type="text" id="node-input-name" placeholder="Name">
+        <input type="hidden" id="node-input-outputs" />
     </div>
     <div class="form-row">
         <label for="node-input-coachPotatoApiUrl">
@@ -32,8 +197,17 @@
         </label>
         <input type="text" id="node-input-coachPotatoApiUrl">
     </div>
-    <div class="form-tips">
+    <div class="form-tips" style="margin-bottom: 10px">
         <b>Tip:</b> Include the api key in the url.
+    </div>
+
+    <div class="form-row">
+        <label style="width: 100%">
+            <i class="fa fa-list"></i> Custom Actions</span>
+        </label>
+    </div>
+    <div class="form-row node-input-custom-actions-container-row">
+        <ol id="node-input-custom-actions"></ol>
     </div>
 </script>
 

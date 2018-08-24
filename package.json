@@ -7,6 +7,7 @@
         "name": "Spacetech"
     },
     "dependencies": {
+        "ecolect": "^0.5.2",
         "request": "^2.88.0"
     },
     "devDependencies": {
